@@ -1,0 +1,12 @@
+<html>
+<body>
+	<p>Nombre: {{anuncio.nombre}}</p>
+	<p>Asunto: {{anuncio.asunto}}</p>
+	<p>Comentario: {{anuncio.comentario}}</p>
+	{{#hasFoto}}
+	<p><img src="{{anuncio.foto}}" alt="{{anuncio.foto}}"></p>
+	{{/hasFoto}}
+	
+	<a href="/">Volver al tablón</a>
+</body>
+</html>
