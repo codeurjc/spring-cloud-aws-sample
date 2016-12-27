@@ -9,4 +9,5 @@ before_install:
 language: java
 
 script:
-  - mvn package docker:build
+  - docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_PASS
+  - mvn package docker:build -DpushImage
