@@ -15,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 
 @Controller
 public class TablonController {
@@ -55,7 +56,7 @@ public class TablonController {
                 ObjectMetadata objectMetadata = new ObjectMetadata();
                 objectMetadata.setContentType(file.getContentType());
 
-                TransferManager transferManager = new TransferManager(s3);
+                TransferManager transferManager = TransferManagerBuilder.defaultTransferManager();
                 transferManager.upload(bucket, filename, file.getInputStream(), objectMetadata);
                 
             } catch (Exception e) {
@@ -79,7 +80,7 @@ public class TablonController {
 	@RequestMapping("/anuncio/{id}")
 	public String verAnuncio(Model model, @PathVariable long id) {
 		
-		Anuncio anuncio = repository.findOne(id);
+		Anuncio anuncio = repository.findById(id).get();
 
 		model.addAttribute("hasFoto", anuncio.getFoto() != null);
 		model.addAttribute("anuncio", anuncio);

@@ -5,13 +5,13 @@
 
 	<groupId>es.urjc.code</groupId>
 	<artifactId>spring-cloud-aws-sample</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.1.0-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>1.4.3.RELEASE</version>
+		<version>2.1.2.RELEASE</version>
 		<relativePath />
 	</parent>
 
@@ -37,7 +37,7 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
 		</dependency>
-		<dependency>
+ 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-aws-autoconfigure</artifactId>
 		</dependency>
@@ -66,7 +66,7 @@
 			<dependency>
 				<groupId>org.springframework.cloud</groupId>
 				<artifactId>spring-cloud-dependencies</artifactId>
-				<version>Camden.SR3</version>
+				<version>Greenwich.RELEASE</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
