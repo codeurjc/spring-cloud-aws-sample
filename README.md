@@ -4,20 +4,20 @@ This is a sample application for demonstration purposes only. It is a very simpl
 
 The application allows users to create ads with a picture. Ads are stored in a RDS database in AWS. The project is configured to use MySQL, but that can be changed to use a different database (for instance, PostgreSQL). Pictures within ads are stored in a bucket in S3.
 
-It also gets all necessary credentials to connect to a RDS database using AWS Secrets Manager for security purposes.
+Also the application has two different Spring profiles: `dev` and `prod`. While running `prod`, the application gets all properties(username, password, databasename...) to connect to a RDS database using AWS Secrets Manager for security purposes.
 
 ## Prerequisites
 
 ### Create an RDS Instance
 
-**WARNING**: These instructions allow you to run and test the application from within your development environment (i.e., without deploying it to AWS) using an RDS instance open to the world, which is something you should avoid in production. 
+**WARNING**: These instructions allow you to run and test the application from within your development environment (i.e., without deploying it to AWS) using an RDS instance open to the world, which is something you should avoid in production.
 
 First, create a _security group_ that will be used to allow ingress connections from outside AWS. Whithin the security group just created, create a new _access rule_ with the following configuration:
 
 * Type: MySQL/Aurora
 * Source: Anywhere
 * CIDR: 0.0.0.0/0
-  
+
 Then, create an RDS instance, with these properties:
 
 * Engine MySQL
@@ -26,7 +26,7 @@ Then, create an RDS instance, with these properties:
 * Multizone AZ: no
 * DB Instance identifier: springaws (we will provide this as app argument cloud.aws.rds.dbInstanceIdentifier)
 * Master username: springaws (we will provide this as app argument cloud.aws.rds.springaws.username)
-* Master password: <your turn> (we will provide this as app argument cloud.aws.rds.springaws.password)
+* Master password: <your password>> (we will provide this as app argument cloud.aws.rds.springaws.password)
 * Ensure Default VPC is enabled
 * Ensure Publicly accessible is yes
 * VPC security group: choose the security group previously created
@@ -57,24 +57,23 @@ Create a new secret named as: `/secrets-app/springaws_prod`. You can insert your
 | Secret Key                          | Secret Value  |
 |-------------------------------------|---------------|
 | cloud.aws.rds.dbInstanceIdentifier  | springaws     |
-| cloud.aws.rds.springaws.password    | my_secret     |
+| cloud.aws.rds.springaws.password    |<your_password>|
 | cloud.aws.rds.springaws.username    | springaws     |
 | cloud.aws.rds.springaws.databaseName| springaws     |
 
 
 ### To run locally
 
-**Note**: I was unable to run new versions of spring-cloud-aws locally. It seems it tries always to perform some autoconfiguration assuming it is deployed on AWS, and as long as it doesn't find a valid instance id, it raises an exception and stops. What follows here is the approach that worked for version 0.0.1 of the tutorial, useless in version 0.1.0. If you have an idea of how this can be solved, please fill in an issue and I'll look into it.
-
 Some configurations are required in your AWS account for this sample to work. Basically, an _S3 bucket_ (by default `spring-cloud-aws-sample` is used, but it can be changed using `cloud.aws.s3.bucket` property), and an _RDS MySQL instance_ open to the world. Additionally, we need an _IAM user_ with access key and programmatic access to AWS API so that we can access AWS resources from our development machine.
 
 #### Create an IAM User
 
-* Enable programmatic access 
-* Generate an access key for the user
-* Give the user the following permissions:
-** AmazonS3FullAccess
-** AmazonRDSFullAccess
+- Enable programmatic access
+- Generate an access key for the user
+- Give the user the following permissions:
+	- AmazonS3FullAccess
+	- AmazonRDSFullAccess
+	- SecretsManagerReadWrite
 
 ### To run on EC2
 
@@ -105,7 +104,7 @@ Once the instance has been started, ssh'd into the machine and issue the followi
 ```
 sudo apt-get update
 sudo apt-get install openjdk-8-jre-headless
-``` 
+```
 
 Then from your own machine, build the jar file and upload it to your EC2 instance:
 
@@ -116,35 +115,43 @@ scp -i <your key> spring-cloud-aws-sample-0.2.0.jar ubuntu@<your ec2 ip>:/home/u
 
 ## Run the application
 
-### Deployment environments 
-
-The application has two different Spring Profiles for differents enviroments  executions:
-- Development (dev): 
-
-	This environment is for local development purposes. It does not use AWS Secrets Manager and get credentials from `application-dev.properties` directly, but needs a RDS and a S3 up and running. 
-
-- Production (prod):
-
-	This environment gets credentials from AWS Secrets Manager. In this way, it is not necessary to put credentials in `application-prod.properties`, preventing database credentials to be exposed.
-
-
 ### Locally (dev)
 
-For the impatient...
+If you have AWS CLI installed in your machine, spring-cloud-aws reads credentials automatically from your machine while trying to use AWS services, but If you don't have it installed, you need to specify the credentials in the `application-dev.properties` file or pass these as parameters launching the jar file:
+
+
+```
+cloud.aws.credentials.accessKey="your key"
+cloud.aws.credentials.secretKey="your secret"
+```
+
+If you have AWS CLI you can just run:
 
 	git clone https://github.com/codeurjc/spring-cloud-aws-sample
-	cd spring-cloud-aws-sample 
+	cd spring-cloud-aws-sample
 	mvn package
 	cd target
-	java -jar spring-cloud-aws-sample-0.0.1-SNAPSHOT.jar  --cloud.aws.rds.dbInstanceIdentifier=springaws --cloud.aws.rds.springaws.password=<your pass> --cloud.aws.rds.springaws.username=springaws --cloud.aws.rds.springaws.databaseName=springaws --cloud.aws.credentials.accessKey="key" --cloud.aws.credentials.secretKey="secret"
+	java -jar spring-cloud-aws-sample-0.2.0-SNAPSHOT.jar \
+		--spring.profiles.active=dev \
+		--cloud.aws.rds.dbInstanceIdentifier=springaws \
+		--cloud.aws.rds.springaws.password=<your password> \
+		--cloud.aws.rds.springaws.username=springaws \
+		--cloud.aws.rds.springaws.databaseName=springaws
+
+
 
 ### On AWS (prod)
 
-If your EC2 instance has the appropriate role (see prerequisites above), and the jar file has been uploaded, the it can be run just by issuing:
+If your EC2 instance has the appropriate role (see prerequisites above), and the jar file has been uploaded, and you have created your Secret
 
-    java -jar spring-cloud-aws-sample-0.1.0-SNAPSHOT.jar --cloud.aws.rds.db-instance-identifier="springaws" --cloud.aws.rds.springaws.password="your rds password"
+    java -jar spring-cloud-aws-sample-0.1.0-SNAPSHOT.jar \
+	--spring.profiles.active=prod
+
+As you can see is not necessary to put database credentials to run the application, it gets the necessary values from AWS Secret Manager.
 
 
- 
 
-   
+
+
+
+
