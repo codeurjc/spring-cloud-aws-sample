@@ -1,6 +1,6 @@
 FROM openjdk:8u111-jre-alpine
 VOLUME /tmp
-ADD spring-cloud-aws-sample-0.0.1-SNAPSHOT.jar app.jar
+ADD spring-cloud-aws-sample-0.2.0-SNAPSHOT.jar app.jar
 RUN sh -c 'touch /app.jar'
 ENV JAVA_OPTS=""
 ENV PROG_OPTS=""
