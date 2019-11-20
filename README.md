@@ -4,6 +4,8 @@ This is a sample application for demonstration purposes only. It is a very simpl
 
 The application allows users to create ads with a picture. Ads are stored in a RDS database in AWS. The project is configured to use MySQL, but that can be changed to use a different database (for instance, PostgreSQL). Pictures within ads are stored in a bucket in S3.
 
+It also gets all necessary credentials to connect to a RDS database using AWS Secrets Manager for security purposes.
+
 ## Prerequisites
 
 ### Create an RDS Instance
@@ -33,7 +35,7 @@ Then, create an RDS instance, with these properties:
 
 ### Create an S3 bucket
 
-Finally, create an S3 bucket, name it `spring-cloud-aws-sample` and give read permissions to anonymous users. Just copy and paste this aws policy to enable anonymous read access:
+Create an S3 bucket, name it `spring-cloud-aws-sample` and give read permissions to anonymous users. Just copy and paste this aws policy to enable anonymous read access:
 
 	{
 	  "Version":"2012-10-17",
@@ -47,6 +49,18 @@ Finally, create an S3 bucket, name it `spring-cloud-aws-sample` and give read pe
 	    }
 	  ]
 	}
+
+### AWS Secrets Manager
+
+Create a new secret named as: `/secrets-app/springaws_prod`. You can insert your desired values but if you want to use the previously created RDS database just put the next key-values:
+
+| Secret Key                          | Secret Value  |
+|-------------------------------------|---------------|
+| cloud.aws.rds.dbInstanceIdentifier  | springaws     |
+| cloud.aws.rds.springaws.password    | my_secret     |
+| cloud.aws.rds.springaws.username    | springaws     |
+| cloud.aws.rds.springaws.databaseName| springaws     |
+
 
 ### To run locally
 
@@ -68,10 +82,13 @@ Some configurations are required in your AWS account for this sample to work. Ba
 
 Create an IAM role with the following properties:
 
-* EC2 role (i.e., a role to be attached to EC2 instances)
-* Policies:
-** AmazonS3FullAccess
-** AmazonRDSFullAccess
+- EC2 role (i.e., a role to be attached to EC2 instances)
+- Policies:
+	- AmazonS3FullAccess
+	- AmazonRDSFullAccess
+	- SecretsManagerReadWrite
+
+**WARNING**: It's a good practice to limit policies and not give all available permissions. We're selecting FullAccess as a proof of concept. Real deployment environments must have more restrictive policies.
 
 #### Create an EC2 instance
 
@@ -94,12 +111,24 @@ Then from your own machine, build the jar file and upload it to your EC2 instanc
 
 ```
 mvn package -DskipTests
-scp -i <your key> spring-cloud-aws-sample-0.1.0.jar ubuntu@<your ec2 ip>:/home/ubuntu/
+scp -i <your key> spring-cloud-aws-sample-0.2.0.jar ubuntu@<your ec2 ip>:/home/ubuntu/
 ```
 
 ## Run the application
 
-### Locally 
+### Deployment environments 
+
+The application has two different Spring Profiles for differents enviroments  executions:
+- Development (dev): 
+
+	This environment is for local development purposes. It does not use AWS Secrets Manager and get credentials from `application-dev.properties` directly, but needs a RDS and a S3 up and running. 
+
+- Production (prod):
+
+	This environment gets credentials from AWS Secrets Manager. In this way, it is not necessary to put credentials in `application-prod.properties`, preventing database credentials to be exposed.
+
+
+### Locally (dev)
 
 For the impatient...
 
@@ -109,11 +138,13 @@ For the impatient...
 	cd target
 	java -jar spring-cloud-aws-sample-0.0.1-SNAPSHOT.jar  --cloud.aws.rds.dbInstanceIdentifier=springaws --cloud.aws.rds.springaws.password=<your pass> --cloud.aws.rds.springaws.username=springaws --cloud.aws.rds.springaws.databaseName=springaws --cloud.aws.credentials.accessKey="key" --cloud.aws.credentials.secretKey="secret"
 
-### On an EC2 instance
+### On AWS (prod)
 
 If your EC2 instance has the appropriate role (see prerequisites above), and the jar file has been uploaded, the it can be run just by issuing:
 
     java -jar spring-cloud-aws-sample-0.1.0-SNAPSHOT.jar --cloud.aws.rds.db-instance-identifier="springaws" --cloud.aws.rds.springaws.password="your rds password"
+
+
  
 
    
