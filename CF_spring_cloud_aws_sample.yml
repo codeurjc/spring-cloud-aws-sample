@@ -1,0 +1,225 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS Cloud Formation Spring Cloud Aws Example
+
+Parameters:
+
+  DatabasePassword:
+    Description: Database Password
+    Type: String
+    NoEcho: true
+    Default: your_password
+
+  KeyName:
+    Description: "Name of an existing EC2 KeyPair to enable SSH access to the instance."
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: "must be the name of an existing EC2 KeyPair."
+
+Mappings:
+  RegionMap:
+    eu-west-1:
+      AMI: ami-02df9ea15c1778c9c
+
+Resources:
+
+  SpringCloudAwsRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: SpringCloudAwsRolePolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'rds:DescribeDBInstances'
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:DeleteObject'
+                  - 'secretsmanager:DescribeSecret'
+                  - 'secretsmanager:GetSecretValue'
+                  - 'secretsmanager:ListSecrets'
+                  - 'secretsmanager:ListSecretVersionIds'
+
+                Resource: '*'
+      RoleName: SpringCloudAwsSampleRole
+
+  SpringCloudAwsInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    DependsOn: SpringCloudAwsRole
+    Properties:
+      Path: /
+      Roles:
+        - SpringCloudAwsSampleRole
+
+  SpringCloudAwsRDS:
+    Type: AWS::RDS::DBInstance
+    DependsOn:
+      - SpringCloudAwsRole
+    Properties:
+      AllocatedStorage: '5'
+      DBInstanceIdentifier: springaws
+      DBInstanceClass: db.t2.micro
+      Engine: MySQL
+      DBName: springaws
+      MasterUsername: springaws
+      MasterUserPassword: !Ref DatabasePassword
+      MultiAZ: false
+      PubliclyAccessible: true
+      DBSecurityGroups:
+        - !Ref SpringCloudAwsRDSSecurityGroup
+    DeletionPolicy: Delete
+
+  SpringCloudAwsRDSSecurityGroup:
+    Type: AWS::RDS::DBSecurityGroup
+    Properties:
+      GroupDescription : Security Group for RDS public Access
+      DBSecurityGroupIngress:
+        - CIDRIP: 0.0.0.0/0
+
+  SpringCloudAwsServerSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security Group for Spring server
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+
+  S3bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: spring-cloud-aws-sample-s3
+    DeletionPolicy: Delete
+
+  BucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    DependsOn: S3bucket
+    Properties:
+      Bucket: 'spring-cloud-aws-sample-s3'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: 'AddPerm'
+          Principal: '*'
+          Action: 's3:GetObject'
+          Effect: 'Allow'
+          Resource:
+          - 'arn:aws:s3:::spring-cloud-aws-sample-s3/*'
+
+  SpringCloudAwsEC2Instance:
+    Type: AWS::EC2::Instance
+    Metadata:
+      Comment: Spring Using AWS services
+      AWS::CloudFormation::Init:
+        config:
+          files:
+            "/etc/cfn/cfn-hup.conf":
+              content: !Sub |
+                [main]
+                stack=${AWS::StackId}
+                region=${AWS::Region}
+              mode: "000400"
+              owner: "root"
+              group: "root"
+            "/etc/cfn/hooks.d/cfn-auto-reloader.conf":
+              content: !Sub |
+                [cfn-auto-reloader-hook]
+                triggers=post.update
+                path=Resources.SpringCloudAwsEC2Instance.Metadata.AWS::CloudFormation::Init
+                action=/usr/local/bin/cfn-init -v --stack ${AWS::StackName} --resource SpringCloudAwsEC2Instance --region ${AWS::Region}
+              mode: "000400"
+              owner: "root"
+              group: "root"
+            "/usr/local/bin/installSoftware.sh":
+              content: |
+                #!/bin/bash -xe
+                set -eu -o pipefail
+                # installing necessary software
+                apt-get update
+                apt-get install -y awscli python-pip
+
+                pip install --upgrade awscli
+
+                curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+                add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable"
+                apt-get update
+                apt-get install -y docker-ce
+              mode: "000755"
+              owner: "root"
+              group: "root"
+            "/usr/local/bin/check_app_ready.sh":
+              content: |
+                #!/bin/bash -xe
+                set -eu -o pipefail
+
+                sleep 1m
+
+                while true
+                do
+                  HTTP_STATUS=$(curl -Ik http://localhost/ | head -n1 | awk '{print $2}')
+                  if [ $HTTP_STATUS == 200 ]; then
+                    break
+                  fi
+                  sleep 1
+                done
+
+              mode: "000755"
+              owner: "root"
+              group: "root"
+    Properties:
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', AMI]
+      InstanceType: t2.micro
+      KeyName: !Ref KeyName
+      IamInstanceProfile: !Ref SpringCloudAwsInstanceProfile
+      SecurityGroupIds:
+        - !GetAtt 'SpringCloudAwsServerSecurityGroup.GroupId'
+      Tags:
+        - Key: Name
+          Value: 'spring-aws-cloud-sample'
+      UserData:
+        "Fn::Base64":
+          !Sub |
+            #!/bin/bash -xe
+            set -eu -o pipefail
+            apt-get update
+            apt-get install -y python-pip
+            pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
+
+            cfn-init --region ${AWS::Region} --stack ${AWS::StackId} --resource SpringCloudAwsEC2Instance
+
+            # Install needed software
+            /usr/local/bin/installSoftware.sh || { echo "Error installing software"; exit 1; }
+
+            # Run App
+            docker run -e PROG_OPTS='--spring.profiles.active=prod' -p 80:8080 codeurjc/spring-cloud-aws-sample:latest
+
+            /usr/local/bin/check_app_ready.sh || { echo "Error installing software"; exit 1; }
+
+            # sending the finish call
+            /usr/local/bin/cfn-signal -e $? --stack ${AWS::StackId} --resource WaitCondition --region ${AWS::Region}
+
+  WaitCondition:
+      Type: AWS::CloudFormation::WaitCondition
+      CreationPolicy:
+        ResourceSignal:
+          Timeout: PT40M
+          Count: 1
+
+Outputs:
+  Application:
+    Description: "Deployed Spring Application"
+    Value: !Join
+        - ''
+        - - 'http://'
+          - !GetAtt SpringCloudAwsEC2Instance.PublicDnsName

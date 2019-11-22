@@ -35,7 +35,7 @@ Then, create an RDS instance, with these properties:
 
 ### Create an S3 bucket
 
-Create an S3 bucket, name it `spring-cloud-aws-sample` and give read permissions to anonymous users. Just copy and paste this aws policy to enable anonymous read access:
+Create an S3 bucket, name it `spring-cloud-aws-sample-s3` and give read permissions to anonymous users. Just copy and paste this aws policy to enable anonymous read access:
 
 	{
 	  "Version":"2012-10-17",
@@ -45,7 +45,7 @@ Create an S3 bucket, name it `spring-cloud-aws-sample` and give read permissions
 	      "Effect":"Allow",
 	      "Principal": "*",
 	      "Action":["s3:GetObject"],
-	      "Resource":["arn:aws:s3:::spring-cloud-aws-sample/*"]
+	      "Resource":["arn:aws:s3:::spring-cloud-aws-sample-s3/*"]
 	    }
 	  ]
 	}
@@ -64,7 +64,7 @@ Create a new secret named as: `/secrets-app/springaws_prod`. You can insert your
 
 ### To run locally
 
-Some configurations are required in your AWS account for this sample to work. Basically, an _S3 bucket_ (by default `spring-cloud-aws-sample` is used, but it can be changed using `cloud.aws.s3.bucket` property), and an _RDS MySQL instance_ open to the world. Additionally, we need an _IAM user_ with access key and programmatic access to AWS API so that we can access AWS resources from our development machine.
+Some configurations are required in your AWS account for this sample to work. Basically, an _S3 bucket_ (by default `spring-cloud-aws-sample-s3` is used, but it can be changed using `cloud.aws.s3.bucket` property), and an _RDS MySQL instance_ open to the world. Additionally, we need an _IAM user_ with access key and programmatic access to AWS API so that we can access AWS resources from our development machine.
 
 #### Create an IAM User
 
@@ -148,6 +148,16 @@ If your EC2 instance has the appropriate role (see prerequisites above), and the
 	--spring.profiles.active=prod
 
 As you can see is not necessary to put database credentials to run the application, it gets the necessary values from AWS Secret Manager.
+
+### Using CloudFormation
+
+To run with CloudFormation is not necessary to create any AWS resources, only secrets. Steps are the following
+
+1. Insert your secret properties as explained in section [AWS Secrets Manager](#aws-secrets-manager)
+2. As parameters to run your stack, you'll need to specify:
+	- Database password
+	- Key Name (for ssh)
+3. Go to your application by click to the link given at the output section of the cloudformation after the stack have been created.
 
 
 
