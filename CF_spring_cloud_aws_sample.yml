@@ -92,8 +92,12 @@ Resources:
       GroupDescription: Security Group for Spring server
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 8080
-          ToPort: 8080
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
           CidrIp: 0.0.0.0/0
 
   S3bucket:
@@ -119,6 +123,7 @@ Resources:
 
   SpringCloudAwsEC2Instance:
     Type: AWS::EC2::Instance
+    DependsOn: SpringCloudAwsRDS
     Metadata:
       Comment: Spring Using AWS services
       AWS::CloudFormation::Init:
@@ -202,7 +207,7 @@ Resources:
             /usr/local/bin/installSoftware.sh || { echo "Error installing software"; exit 1; }
 
             # Run App
-            docker run -e PROG_OPTS='--spring.profiles.active=prod' -p 80:8080 codeurjc/spring-cloud-aws-sample:latest
+            docker run -d -e PROG_OPTS='--spring.profiles.active=prod' -p 80:8080 codeurjc/spring-cloud-aws-sample:latest
 
             /usr/local/bin/check_app_ready.sh || { echo "Error installing software"; exit 1; }
 
